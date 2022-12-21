@@ -146,6 +146,15 @@ class ATBX_PT_properties_panel(bpy.types.Panel):
         else:
             layout.label(text = "Selection not applicable")
 
+# class ATBX_PT_mlod_panel(bpy.types.Panel):
+    # bl_space_type = 'VIEW_3D'
+    # bl_region_type = 'UI'
+    # bl_label = "Mlod"
+    # bl_category =  "Arma 3"  
+    
+    # def draw(self, context):
+        # pass
+
 class ATBX_PT_proxy_panel(bpy.types.Panel):
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
@@ -156,7 +165,7 @@ class ATBX_PT_proxy_panel(bpy.types.Panel):
     def poll(cls, context):
         ## Visible when there is a selected object, it is a mesh
         obj = context.active_object
-       
+        
         return (obj 
             and obj.select_get() == True
             and obj.armaObjProps != None
@@ -164,12 +173,20 @@ class ATBX_PT_proxy_panel(bpy.types.Panel):
             and (obj.type == "MESH" or obj.type == "ARMATURE") )
 
     def draw(self, context):
-        obj = context.active_object
+        obj = context.active_object        
+        guiProp = context.window_manager.armaGUIProps        
         layout = self.layout
+        
+        box = layout.box()
+        row = box.row()        
+        row.prop(guiProp, "mlodDayZFolder", text="DayzMlod path")  
+        row = box.row()        
+        row.prop(guiProp, "mlodSuffix", text="Mlod Suffix")
+
         row = layout.row()
         row.operator("armatoolbox.add_new_proxy", text = "Add Proxy")
         row.operator("armatoolbox.sync_proxies", text = "Sync with model")
-        
+
         for prox in obj.armaObjProps.proxyArray:
             box = layout.box()
             row = box.row()
@@ -188,9 +205,9 @@ class ATBX_PT_proxy_panel(bpy.types.Panel):
                     iconName="GHOST_ENABLED" 
                 row.label(text = name, icon=iconName)
             
-            
             if prox.open:
-                selectOp = row.operator("armatoolbox.select_proxy", text="", icon="VIEWZOOM", emboss=False)
+                row.operator("armatoolbox.import_proxy_mlod", text = "", icon="IMPORT", emboss=False)                
+                selectOp = row.operator("armatoolbox.select_proxy", text="", icon="EXPORT", emboss=False)
                 selectOp.proxyName = prox.name
                 copyOp = row.operator("armatoolbox.copy_proxy", text = "", icon="PASTEDOWN", emboss=False)
                 copyOp.copyProxyName = prox.name
@@ -201,7 +218,7 @@ class ATBX_PT_proxy_panel(bpy.types.Panel):
                 row = box.row()
                 row.prop(prox, "index", text = "Index")
             else:
-                selectOp = row.operator("armatoolbox.select_proxy", text="", icon="VIEWZOOM", emboss=False)
+                selectOp = row.operator("armatoolbox.select_proxy", text="", icon="EXPORT", emboss=False)
                 selectOp.proxyName = prox.name
                 delOp = row.operator("armatoolbox.delete_proxy", text = "", icon="X", emboss=False)
                 delOp.proxyName = prox.name
@@ -705,6 +722,7 @@ class ATBX_PT_transparency_panel(bpy.types.Panel):
 panel_classes = (
     ATBX_PT_properties_panel,
     ATBX_PT_proxy_panel,
+    # ATBX_PT_mlod_panel,###
     ATBX_PT_material_settings_panel,
     ATBX_PT_weight_tool_panel,
     ATBX_PT_tool_panel,

@@ -541,7 +541,7 @@ def loadLOD(coll, filePtr, objectName, materialData, layerFlag, lodnr):
     return 0
 
 # Main Import Routine
-def importMDL(context, fileName, layerFlag):
+def importMDL(context, fileName, layerFlag, loadCount):
     global objectLayers
     objectLayers = [True, False, False, False, False,
                False, False, False, False, False,
@@ -570,6 +570,9 @@ def importMDL(context, fileName, layerFlag):
     coll = bpy.data.collections.new(objName)
     context.scene.collection.children.link(coll)
 
+    if loadCount != -1:
+        numLods = loadCount
+    
     # Start loading lods
     for i in range(0, numLods):
         if loadLOD(coll, filePtr, objName, materialData, layerFlag, i) != 0:

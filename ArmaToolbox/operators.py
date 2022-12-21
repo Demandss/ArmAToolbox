@@ -9,11 +9,14 @@ import RVMatTools
 from math import *
 from mathutils import *
 from ArmaToolbox import getLodsToFix
+from traceback import print_tb
+
 from properties import ArmaToolboxMaterialProperties
 #from RtmTools import exportModelCfg
 
-import os, tempfile
+import os, tempfile, fnmatch
 import errno, sys
+from MDLImporter import importMDL
 
 # Sadly, Python fails to provide the following magic number for us.
 ERROR_INVALID_NAME = 123
@@ -301,9 +304,11 @@ class ATBX_OT_add_new_proxy(bpy.types.Operator):
     bl_idname = "armatoolbox.add_new_proxy"
     bl_label = ""
     bl_description = "Add a proxy"
+
     
     def execute(self, context):
         bpy.ops.object.mode_set(mode="EDIT")
+        bpy.ops.mesh.select_all(action='DESELECT')
         obj = context.active_object
         mesh = obj.data
         
@@ -338,9 +343,10 @@ class ATBX_OT_add_new_proxy(bpy.types.Operator):
         vgrp2.add([i+0],1,'ADD')
         vgrp2.add([i+1],1,'ADD')
         vgrp2.add([i+2],1,'ADD')
-
-        bpy.ops.object.mode_set(mode="EDIT")
         
+        
+        bpy.ops.object.mode_set(mode="EDIT")
+
         p = obj.armaObjProps.proxyArray.add()
         p.name = vgrp.name
         
@@ -504,10 +510,11 @@ class ATBX_OT_delete_proxy(bpy.types.Operator):
             
         return {"FINISHED"}
 
+
 class ATBX_OT_select_proxy(bpy.types.Operator):
     bl_idname = "armatoolbox.select_proxy"
     bl_label = ""
-    bl_description = "selects given proxy"  
+    bl_description = "selects given proxy" 
     
     proxyName : bpy.props.StringProperty()
     
@@ -521,6 +528,9 @@ class ATBX_OT_select_proxy(bpy.types.Operator):
     def execute(self, context):
         sObj = context.active_object
         SelectProxy(sObj, self.proxyName)
+        bpy.ops.mesh.separate(type='SELECTED')        
+        bpy.ops.object.mode_set(mode="OBJECT")        
+        
         return {"FINISHED"}
 
 ###
@@ -1073,6 +1083,62 @@ class ATBX_OT_process_materials(bpy.types.Operator):
                     
         return {'FINISHED'}
 
+class ATBX_OT_import_proxy_mlod(bpy.types.Operator):
+    bl_idname = "armatoolbox.import_proxy_mlod"
+    bl_label = ""
+    bl_description = "import_proxy_mlod"
+
+    proxyName: bpy.props.StringProperty()
+
+    @classmethod
+    def poll(self, context):
+        if context.active_object.mode == 'OBJECT':
+            return True
+        else:
+            return False
+
+    def execute(self, context):
+        global file_path
+        mlods_path = context.window_manager.armaGUIProps.mlodDayZFolder
+        mlod_suffix = context.window_manager.armaGUIProps.mlodSuffix
+        obj = context.active_object
+
+        for prox in obj.armaObjProps.proxyArray:
+            file_path = prox.path
+
+        error = -2
+        try:
+            error = importMDL(context, file_path, False, 1)
+        except Exception as e:
+            exc_tb = sys.exc_info()[2]
+            print_tb(exc_tb)
+            print("{0}".format(exc_tb))
+            self.report({'WARNING', 'INFO'}, "I/O error: {0}\n{1}".format(e, exc_tb))
+
+        obj_name = file_path[file_path.rfind("\\") + 1:].split(".")[0] + '_1'
+
+        if error == -1 or error == -2:
+            for root, dirs, files, in os.walk(mlods_path):
+                for name in files:
+                    if (name.casefold()).__eq__((obj_name[:obj_name.rfind("_")] + mlod_suffix + ".p3d").casefold()):
+                       obj_name = obj_name[:obj_name.rfind("_")] + mlod_suffix + '_1'
+                       error = importMDL(context, os.path.join(root, name), False, 1)
+
+        if error == -1:
+            self.report({'WARNING', 'INFO'}, "I/O error: Wrong MDL version")
+        if error == -2:
+            self.report({'WARNING', 'INFO'}, "I/O error: Exception while reading")
+
+        obj.select_set(True)
+        bpy.context.scene.objects[obj_name].select_set(True)
+
+        bpy.ops.object.join()
+
+        bpy.data.collections.remove(bpy.data.collections[obj_name[:obj_name.rfind("_")]])
+
+        return {"FINISHED"}
+        
+
 op_classes = (
     ATBX_OT_add_frame_range,
     ATBX_OT_add_key_frame,
@@ -1113,7 +1179,8 @@ op_classes = (
     ATBX_OT_set_transparency,
     ATBX_OT_unset_transparency,
     ATBX_OT_select_transparent,
-    ATBX_OT_process_materials
+    ATBX_OT_process_materials,
+    ATBX_OT_import_proxy_mlod
 )
 
 

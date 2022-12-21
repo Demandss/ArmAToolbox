@@ -108,6 +108,15 @@ class ArmaToolboxProxyProperty(bpy.types.PropertyGroup):
     path   : bpy.props.StringProperty(name="path", description="File path", subtype="FILE_PATH")
     index  : bpy.props.IntProperty(name="index", description="Index of Proxy", default=1)
 
+
+################################
+################################
+#class ArmaToolboxMlodProperty(bpy.types.PropertyGroup):
+#    mlodPath   : bpy.props.StringProperty(name="mlodPath", description="File mlod path", subtype="FILE_PATH")
+################################
+################################
+
+
 class ArmaToolboxHeightfieldProperties(bpy.types.PropertyGroup):
     isHeightfield : bpy.props.BoolProperty(
         name = "IsArmaHeightfield",
@@ -158,6 +167,12 @@ class ArmaToolboxProperties(bpy.types.PropertyGroup):
     
     proxyArray : bpy.props.CollectionProperty(type = ArmaToolboxProxyProperty, description = "Proxies")
     
+################################
+################################
+#    mlodArray : bpy.props.CollectionProperty(type = ArmaToolboxMlodProperty, description = "Proxies")
+################################
+################################
+
     # Armature
     keyFrames : bpy.props.CollectionProperty(type = ArmaToolboxKeyframeProperty,
           description="Keyframes")
@@ -179,8 +194,6 @@ class ArmaToolboxProperties(bpy.types.PropertyGroup):
         description="Output file for model.cfg inclusion", 
         subtype="FILE_PATH", 
         default="")
-    
-
     
 class ArmaToolboxMaterialProperties(bpy.types.PropertyGroup):
     texture : bpy.props.StringProperty(
@@ -267,7 +280,10 @@ class ArmaToolboxGUIProps(bpy.types.PropertyGroup):
     # RVMat Relocator
     rvmatRelocFile : bpy.props.StringProperty("rvmatRelocFile", description="RVMat to relocate", subtype = 'FILE_PATH')
     rvmatOutputFolder : bpy.props.StringProperty("rvmatOutputFolder", description="RVMat output", subtype = 'DIR_PATH')
-      
+
+    #Mlod folder
+    mlodDayZFolder : bpy.props.StringProperty("mlodDayZFolder", description="Mlod output", subtype = 'DIR_PATH')
+    mlodSuffix : bpy.props.StringProperty("mlodSuffix", description="Mlod Suffix", default= "_mlod")
     
     # Material Relocator
     matOutputFolder : bpy.props.StringProperty("matOutputFolder", description="RVMat output", subtype = 'DIR_PATH')
@@ -350,6 +366,7 @@ prpclasses = (
     ArmaToolboxKeyframeProperty,
     ArmaToolboxComponentProperty,
     ArmaToolboxProxyProperty,
+    #ArmaToolboxMlodProperty, ################################
     ArmaToolboxHeightfieldProperties,
     ArmaToolboxProperties,
     ArmaToolboxMaterialProperties,

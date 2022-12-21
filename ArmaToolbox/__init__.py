@@ -217,8 +217,18 @@ class ATBX_OT_p3d_export(bpy.types.Operator, bpy_extras.io_utils.ExportHelper):
     bl_description = "Export P3D(s)"
     
     filter_glob : bpy.props.StringProperty(
-        default="*",
+        default="*.p3d",
         options={'HIDDEN'})
+
+    customName : bpy.props.BoolProperty(
+       name = "Custom Name",
+       description = "Specify a name for the file",
+       default = True)
+
+    selectionOnly : bpy.props.BoolProperty(
+       name = "Selection Only",
+       description = "Export selected objects only",
+       default = True)
     
     applyModifiers : bpy.props.BoolProperty(
         name="Apply Modifies",
@@ -228,27 +238,35 @@ class ATBX_OT_p3d_export(bpy.types.Operator, bpy_extras.io_utils.ExportHelper):
     mergeSameLOD: bpy.props.BoolProperty(
         name="Merge Same LODs",
         description="Merge objects with the same LOD in exported file (experimental)",
-        default= True)
+        default= False)
 
-    filename_ext = ""
+    filename_ext = ".p3d"
     
     def execute(self, context):
-        self.filepath = os.path.split(self.filepath)[0]
+        if self.customName:
+            file_name = self.filepath
+        else:
+            file_name = os.path.split(self.filepath)[0]
 
         for col in bpy.data.collections:
-            fileName = self.filepath + os.path.sep + col.name + ".p3d"
-            objects = col.all_objects
+            if not self.customName:
+                file_name = self.filepath + os.path.sep + col.name
+
+            if self.selectionOnly:
+                objects = context.selected_objects
+            else:
+                objects = col.all_objects
 
             #try:
             # Open the file and export 
-            if exportMDL(self, fileName, objects, self.applyModifiers, self.mergeSameLOD) == False:
+            if exportMDL(self, file_name, objects, self.applyModifiers, self.mergeSameLOD) == False:
                 continue
             
             # Write a temporary O2script file for this
             filePtr = tempfile.NamedTemporaryFile("w", delete=False)
             tmpName = filePtr.name
             filePtr.write("p3d = newLodObject;\n")
-            filePtr.write('_res = p3d loadP3D "%s";\n' % (fileName))
+            filePtr.write('_res = p3d loadP3D "%s";\n' % (file_name))
             filePtr.write("_res = p3d setActive 4e13;")
             filePtr.write('save p3d;\n')
             filePtr.close()
@@ -320,7 +338,7 @@ class ATBX_OT_p3d_import(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
     def execute (self, context):
         error = -2
         try:
-            error = importMDL(context, self.filepath, self.layeredLods)
+            error = importMDL(context, self.filepath, self.layeredLods, -1)
         except Exception as e:
             exc_tb = sys.exc_info()[2]
             print_tb(exc_tb)
