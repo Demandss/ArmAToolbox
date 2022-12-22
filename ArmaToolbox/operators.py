@@ -1180,6 +1180,7 @@ class ATBX_OT_import_proxy_mlod(bpy.types.Operator):
         mlod_suffix = context.window_manager.armaGUIProps.mlodSuffix
         mlodEmptyProxy = context.window_manager.armaGUIProps.mlodEmptyProxy
         mlodEmptyProxyFile = context.window_manager.armaGUIProps.mlodEmptyProxyFile
+        obj = context.active_object
 
         if mlodEmptyProxy == True and mlodEmptyProxyFile != "":
             file_path = mlodEmptyProxyFile
@@ -1204,6 +1205,9 @@ class ATBX_OT_import_proxy_mlod(bpy.types.Operator):
                     if (name.casefold()).__eq__((obj_name[:obj_name.rfind("_")] + mlod_suffix + ".p3d").casefold()):
                         obj_name = obj_name[:obj_name.rfind("_")] + mlod_suffix + '_1'
                         error = importMDL(context, os.path.join(root, name), False, 1)
+                    elif (name.casefold()).__eq__((obj_name[:obj_name.rfind("_")] + ".p3d").casefold()):
+                        obj_name = obj_name[:obj_name.rfind("_")] + '_1'
+                        error = importMDL(context, os.path.join(root, name), False, 1)
 
         if error == -1:
             self.report({'WARNING', 'INFO'}, "I/O error: Wrong MDL version")
@@ -1211,6 +1215,7 @@ class ATBX_OT_import_proxy_mlod(bpy.types.Operator):
             self.report({'WARNING', 'INFO'}, "I/O error: Exception while reading")
 
         obj.select_set(True)
+
         bpy.context.scene.objects[obj_name].select_set(True)
 
         bpy.ops.object.join()
@@ -1221,13 +1226,11 @@ class ATBX_OT_import_proxy_mlod(bpy.types.Operator):
         bpy.ops.mesh.separate(type='SELECTED')
         bpy.ops.object.mode_set(mode="OBJECT")
 
-        sObj_name = context.active_object.name
+        obj = context.selected_objects[len(context.selected_objects) - 1]
 
-        sObj = context.selected_objects[len(context.selected_objects) - 1]
-
-        context.view_layer.objects.active = sObj
-        sObj.name = sObj_name + "_mlod"
-        sObj.select_set(True)
+        context.view_layer.objects.active = obj
+        obj.name = context.active_object.name + "_mlod"
+        obj.select_set(True)
 
         coll = None
         try:
@@ -1237,17 +1240,17 @@ class ATBX_OT_import_proxy_mlod(bpy.types.Operator):
             active_coll = context.view_layer.active_layer_collection.collection
             active_coll.children.link(coll)
 
-        for ob in sObj.users_collection[:]:
-            ob.objects.unlink(sObj)
+        for ob in obj.users_collection[:]:
+            ob.objects.unlink(obj)
 
-        coll.objects.link(sObj)
+        coll.objects.link(obj)
 
         bpy.ops.object.parent_set(type="OBJECT", keep_transform=False)
 
         bpy.ops.object.select_all(action='DESELECT')
-        sObj.select_set(True)
+        obj.select_set(True)
 
-        sObj.armaObjProps.isArmaObject = False
+        obj.armaObjProps.isArmaObject = False
 
         return {"FINISHED"}
 
