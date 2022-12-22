@@ -1216,7 +1216,10 @@ class ATBX_OT_import_proxy_mlod(bpy.types.Operator):
 
         obj.select_set(True)
 
-        bpy.context.scene.objects[obj_name].select_set(True)
+        try:
+            bpy.context.scene.objects[obj_name].select_set(True)
+        except Exception as e:
+            bpy.context.scene.objects[obj_name[:obj_name.rfind("_")] + "_0"].select_set(True)
 
         bpy.ops.object.join()
 
