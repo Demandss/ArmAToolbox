@@ -1231,8 +1231,10 @@ class ATBX_OT_import_proxy_mlod(bpy.types.Operator):
 
         obj = context.selected_objects[len(context.selected_objects) - 1]
 
+        obj_name = context.active_object.name
+
         context.view_layer.objects.active = obj
-        obj.name = context.active_object.name + "_mlod"
+        obj.name = obj_name + "_mlod"
         obj.select_set(True)
 
         coll = None
