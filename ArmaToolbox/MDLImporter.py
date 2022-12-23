@@ -185,7 +185,7 @@ def decodeWeight(b):
         # print ("decodeWeight(",b,") returns 1.0 as else case")
         return 1.0 #TODO: Correct?
 
-def loadLOD(coll, filePtr, objectName, materialData, layerFlag, lodnr):
+def loadLOD(coll, filePtr, objectName, materialData, layerFlag, lodnr, loadOnlyView):
     global objectLayers
     meshName = objectName
     weightArray = []
@@ -229,6 +229,8 @@ def loadLOD(coll, filePtr, objectName, materialData, layerFlag, lodnr):
     faceData = []
     faces = []
     print("faces...")
+
+
     # Start reading and adding faces
     for i in range(0, numFaces):
         numSides = readULong(filePtr)
@@ -250,34 +252,35 @@ def loadLOD(coll, filePtr, objectName, materialData, layerFlag, lodnr):
         )
         faces.append(vIdx)
         # Handle the material if it doesn't exists yet
-        if len(textureName) > 0 or  len(materialName)>0:
-            try:
-                materialData[(textureName, materialName)]
-            except:
-                # Need to create a new material for this
-                #mat =  bpy.data.materials.new("Arma Material")
-                mat = bpy.data.materials.new(path.basename(textureName) + " :: " + path.basename(materialName))
-                mat.armaMatProps.colorString = textureName
-                mat.armaMatProps.rvMat   = materialName
-                if len(textureName) > 0 and textureName[0] == '#':
-                    mat.armaMatProps.texType = 'Custom'
+        if not loadOnlyView:
+            if len(textureName) > 0 or  len(materialName)>0:
+                try:
+                    materialData[(textureName, materialName)]
+                except:
+                    # Need to create a new material for this
+                    #mat =  bpy.data.materials.new("Arma Material")
+                    mat = bpy.data.materials.new(path.basename(textureName) + " :: " + path.basename(materialName))
                     mat.armaMatProps.colorString = textureName
-                else:
-                    mat.armaMatProps.texType = 'Texture'
-                    mat.armaMatProps.texture = textureName
-                    mat.armaMatProps.colorString = ""
-                    
-                materialData[(textureName, materialName)] = mat
+                    mat.armaMatProps.rvMat   = materialName
+                    if len(textureName) > 0 and textureName[0] == '#':
+                        mat.armaMatProps.texType = 'Custom'
+                        mat.armaMatProps.colorString = textureName
+                    else:
+                        mat.armaMatProps.texType = 'Texture'
+                        mat.armaMatProps.texture = textureName
+                        mat.armaMatProps.colorString = ""
+
+                    materialData[(textureName, materialName)] = mat
             
     
     if readSignature(filePtr) != b'TAGG':
         print("No tagg signature")
-        return -1;
+        return -1
     
     # Create the mesh. Doing it here makes the named selections
     # easier to read.
     mymesh = bpy.data.meshes.new(name=meshName)
-    mymesh.from_pydata(verts, [], faces) 
+    mymesh.from_pydata(verts, [], faces)
 
     mymesh.update(calc_edges = True)
 
@@ -302,105 +305,106 @@ def loadLOD(coll, filePtr, objectName, materialData, layerFlag, lodnr):
     loop = True
     sharpEdges = None
     weight = None
-    while loop:
-        active = readChar(filePtr)
-        tagName = readString(filePtr)
-        
-        numBytes = readULong(filePtr)
-        
-        #print ("tagg: ",tagName, " size ", numBytes)
-        
-        if active == b'\000':
-            if numBytes != 0:
-                filePtr.seek(numBytes, 1)
-        else:
-            if tagName == "#EndOfFile#":
-                loop = False
-            elif tagName == "#SharpEdges#":
-                # Read Sharp Edges
-                sharpEdges = []
-                for i in range(0,numBytes,8):
-                    n1 = readULong(filePtr)
-                    n2 = readULong(filePtr)
-                    sharpEdges.append([n1, n2])
-                #print ("sharp edges", sharpEdges)
-            elif tagName == "#Property#":
-                # Read named property
-                propName  = struct.unpack("64s", filePtr.read(64))[0].decode("utf-8")
-                propValue = struct.unpack("64s", filePtr.read(64))[0].decode("utf-8")
-                item = obj.armaObjProps.namedProps.add()
-                item.name=propName;
-                item.value=propValue
-            elif tagName == "#UVSet#":
-                id = readULong(filePtr)
-                layerName = "UVSet " + str(id)
-                if id == 0:
-                    # Name first layer "UVMap" so that there isn't any fuckups with uv sets
-                    layerName = "UVMap"
-                #print("adding UV set " + layerName)
-                mymesh.uv_layers.new(name=layerName)
-                layer = mymesh.uv_layers[-1]
-                index = 0
-                for faceIdx in range(0,numFaces):
-                    n = faceData[faceIdx][0]
-                    for x in range(0,n):
-                        u = readFloat(filePtr)
-                        v = readFloat(filePtr)
-                        layer.data[index].uv = [u,1 - v]
-                        index += 1
-            elif tagName == "#Mass#":
-                weightArray = []
-                weight = 0;
-                for idx in range (0,numPoints):
-                    f = readFloat(filePtr)
-                    weightArray.append(f)
-                    weight += f
-            elif tagName[0] == '#':
-                # System tag we don't read
-                filePtr.seek(numBytes, 1)
+    if not loadOnlyView:
+        while loop:
+            active = readChar(filePtr)
+            tagName = readString(filePtr)
+
+            numBytes = readULong(filePtr)
+
+            #print ("tagg: ",tagName, " size ", numBytes)
+
+            if active == b'\000':
+                if numBytes != 0:
+                    filePtr.seek(numBytes, 1)
             else:
-                # Named Selection
-                # Add a vertex group
-                # First, check the tagName for a proxy
-                newVGrp = True
-                if len(tagName) > 5:
-                    if tagName[:6] == "proxy:":
-                        newVGrp = False
-                        vgrp = obj.vertex_groups.new(name = "@@armaproxy")
-                        prp = obj.armaObjProps.proxyArray
-                        prx = tagName.split(":")[1]
-                        if prx.find(".") != -1:
-                            a = prx.split(".")
-                            prx = a[0]
-                            idx = a[-1]
-                            if len(idx) == 0:
+                if tagName == "#EndOfFile#":
+                    loop = False
+                elif tagName == "#SharpEdges#":
+                    # Read Sharp Edges
+                    sharpEdges = []
+                    for i in range(0,numBytes,8):
+                        n1 = readULong(filePtr)
+                        n2 = readULong(filePtr)
+                        sharpEdges.append([n1, n2])
+                    #print ("sharp edges", sharpEdges)
+                elif tagName == "#Property#":
+                    # Read named property
+                    propName  = struct.unpack("64s", filePtr.read(64))[0].decode("utf-8")
+                    propValue = struct.unpack("64s", filePtr.read(64))[0].decode("utf-8")
+                    item = obj.armaObjProps.namedProps.add()
+                    item.name=propName;
+                    item.value=propValue
+                elif tagName == "#UVSet#":
+                    id = readULong(filePtr)
+                    layerName = "UVSet " + str(id)
+                    if id == 0:
+                        # Name first layer "UVMap" so that there isn't any fuckups with uv sets
+                        layerName = "UVMap"
+                    #print("adding UV set " + layerName)
+                    mymesh.uv_layers.new(name=layerName)
+                    layer = mymesh.uv_layers[-1]
+                    index = 0
+                    for faceIdx in range(0,numFaces):
+                        n = faceData[faceIdx][0]
+                        for x in range(0,n):
+                            u = readFloat(filePtr)
+                            v = readFloat(filePtr)
+                            layer.data[index].uv = [u,1 - v]
+                            index += 1
+                elif tagName == "#Mass#":
+                    weightArray = []
+                    weight = 0;
+                    for idx in range (0,numPoints):
+                        f = readFloat(filePtr)
+                        weightArray.append(f)
+                        weight += f
+                elif tagName[0] == '#':
+                    # System tag we don't read
+                    filePtr.seek(numBytes, 1)
+                else:
+                    # Named Selection
+                    # Add a vertex group
+                    # First, check the tagName for a proxy
+                    newVGrp = True
+                    if len(tagName) > 5:
+                        if tagName[:6] == "proxy:":
+                            newVGrp = False
+                            vgrp = obj.vertex_groups.new(name = "@@armaproxy")
+                            prp = obj.armaObjProps.proxyArray
+                            prx = tagName.split(":")[1]
+                            if prx.find(".") != -1:
+                                a = prx.split(".")
+                                prx = a[0]
+                                idx = a[-1]
+                                if len(idx) == 0:
+                                    idx = "1"
+                            else:
                                 idx = "1"
-                        else:
-                            idx = "1"
-                        n = prp.add()
-                        n.name = vgrp.name
-                        n.index = int(idx)
-                        n.path = "P:" + prx
-                        tagName = "@@armyproxy"
-                
-                if newVGrp == True:    
-                    vgrp = obj.vertex_groups.new(name = tagName)
-                for i in range(0, numPoints):
-                    b = readByte(filePtr)
-                    w = decodeWeight(b)
-                    if (w>0):
-                        vgrp.add([i],float(w),'REPLACE')
-                    #print("b = ",b,"w = ", w)
-                for i in range(0, numFaces):
-                    b = readByte(filePtr)
-                    w = decodeWeight(b)
-                #    print("b = ",b,"w = ", w)
-                #    if w== 1.0:
-                #        pPoly = obj.data.polygons[i]
-                #        for n in range(0,len(pPoly.vertices)):
-                #            idx = pPoly.vertices[n]
-                #            vgrp.add([idx], w, 'REPLACE')
-                #filePtr.seek(numFaces, 1)
+                            n = prp.add()
+                            n.name = vgrp.name
+                            n.index = int(idx)
+                            n.path = "P:" + prx
+                            tagName = "@@armyproxy"
+
+                    if newVGrp == True:
+                        vgrp = obj.vertex_groups.new(name = tagName)
+                    for i in range(0, numPoints):
+                        b = readByte(filePtr)
+                        w = decodeWeight(b)
+                        if (w>0):
+                            vgrp.add([i],float(w),'REPLACE')
+                        #print("b = ",b,"w = ", w)
+                    for i in range(0, numFaces):
+                        b = readByte(filePtr)
+                        w = decodeWeight(b)
+                    #    print("b = ",b,"w = ", w)
+                    #    if w== 1.0:
+                    #        pPoly = obj.data.polygons[i]
+                    #        for n in range(0,len(pPoly.vertices)):
+                    #            idx = pPoly.vertices[n]
+                    #            vgrp.add([idx], w, 'REPLACE')
+                    #filePtr.seek(numFaces, 1)
     
     # Done with the taggs, only the resolution is left to read
     resolution = readFloat(filePtr)  
@@ -513,35 +517,38 @@ def loadLOD(coll, filePtr, objectName, materialData, layerFlag, lodnr):
         print("resolution %d" % (correctedResolution(resolution)))
 
     print("weight")
-    if weight is not None:
-        obj.armaObjProps.mass = weight
-    
-    if len(weightArray) > 0:
-        bm = bmesh.new()
-        bm.from_mesh(obj.data)
-        bm.verts.ensure_lookup_table()
-        
-        weight_layer = bm.verts.layers.float.new('FHQWeights')
-        weight_layer = bm.verts.layers.float['FHQWeights']
-        print(weight_layer)
-        for i in range(0,len(weightArray)):    
-            bm.verts[i][weight_layer] = weightArray[i]
-        
-        bm.to_mesh(obj.data)
+
+    if not loadOnlyView:
+        if weight is not None:
+            obj.armaObjProps.mass = weight
+
+        if len(weightArray) > 0:
+            bm = bmesh.new()
+            bm.from_mesh(obj.data)
+            bm.verts.ensure_lookup_table()
+
+            weight_layer = bm.verts.layers.float.new('FHQWeights')
+            weight_layer = bm.verts.layers.float['FHQWeights']
+            print(weight_layer)
+            for i in range(0,len(weightArray)):
+                bm.verts[i][weight_layer] = weightArray[i]
+
+            bm.to_mesh(obj.data)
     
     obj.select_set(False)
-    
-    if obj.armaObjProps.lod == '1.000e+13' or obj.armaObjProps.lod == '4.000e+13':
-        ArmaTools.attemptFixMassLod (obj)
 
-    if obj.armaObjProps.lod == '-1.0':
-        ArmaTools.PostProcessLOD(obj)
+    if not loadOnlyView:
+        if obj.armaObjProps.lod == '1.000e+13' or obj.armaObjProps.lod == '4.000e+13':
+            ArmaTools.attemptFixMassLod (obj)
+
+        if obj.armaObjProps.lod == '-1.0':
+            ArmaTools.PostProcessLOD(obj)
 
     print("done reading lod")
     return 0
 
 # Main Import Routine
-def importMDL(context, fileName, layerFlag, loadCount):
+def importMDL(context, fileName, layerFlag, loadCount, loadOnlyView):
     global objectLayers
     objectLayers = [True, False, False, False, False,
                False, False, False, False, False,
@@ -575,8 +582,11 @@ def importMDL(context, fileName, layerFlag, loadCount):
     
     # Start loading lods
     for i in range(0, numLods):
-        if loadLOD(coll, filePtr, objName, materialData, layerFlag, i) != 0:
-            return -2
+        if not loadOnlyView:
+            if loadLOD(coll, filePtr, objName, materialData, layerFlag, i, loadOnlyView) != 0:
+                return -2
+        else:
+            loadLOD(coll, filePtr, objName, materialData, layerFlag, i, loadOnlyView)
 
     filePtr.close()
 

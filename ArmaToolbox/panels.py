@@ -265,6 +265,9 @@ class ATBX_PT_material_settings_panel(bpy.types.Panel):
         layout = self.layout
 
         arma = context.material.armaMatProps
+
+        if arma is None: return
+
         box = layout.box()
 
         # - box

@@ -14,7 +14,7 @@ from traceback import print_tb
 from properties import ArmaToolboxMaterialProperties
 # from RtmTools import exportModelCfg
 
-import os, tempfile, fnmatch
+import os, tempfile, fnmatch, re
 import errno, sys
 from MDLImporter import importMDL
 
@@ -1190,7 +1190,7 @@ class ATBX_OT_import_proxy_mlod(bpy.types.Operator):
 
         error = -2
         try:
-            error = importMDL(context, file_path, False, 1)
+            error = importMDL(context, file_path, False, 1, True)
         except Exception as e:
             exc_tb = sys.exc_info()[2]
             print_tb(exc_tb)
@@ -1204,10 +1204,10 @@ class ATBX_OT_import_proxy_mlod(bpy.types.Operator):
                 for name in files:
                     if (name.casefold()).__eq__((obj_name[:obj_name.rfind("_")] + mlod_suffix + ".p3d").casefold()):
                         obj_name = obj_name[:obj_name.rfind("_")] + mlod_suffix + '_1'
-                        error = importMDL(context, os.path.join(root, name), False, 1)
+                        error = importMDL(context, os.path.join(root, name), False, 1, True)
                     elif (name.casefold()).__eq__((obj_name[:obj_name.rfind("_")] + ".p3d").casefold()):
                         obj_name = obj_name[:obj_name.rfind("_")] + '_1'
-                        error = importMDL(context, os.path.join(root, name), False, 1)
+                        error = importMDL(context, os.path.join(root, name), False, 1, True)
 
         if error == -1:
             self.report({'WARNING', 'INFO'}, "I/O error: Wrong MDL version")
@@ -1216,12 +1216,14 @@ class ATBX_OT_import_proxy_mlod(bpy.types.Operator):
 
         obj.select_set(True)
 
-        try:
-            bpy.context.scene.objects[obj_name].select_set(True)
-        except Exception as e:
-            bpy.context.scene.objects[obj_name[:obj_name.rfind("_")] + "_0"].select_set(True)
+        for f_obj in bpy.context.scene.objects:
+            if obj_name[:obj_name.rfind("_")] in f_obj.name:
+                f_obj.select_set(True)
 
-        bpy.ops.object.join()
+        try:
+            bpy.ops.object.join()
+        except Exception as e:
+            self.report({'WARNING', 'INFO'}, "I/O error: Looks like the visual model could not be loaded.")
 
         bpy.data.collections.remove(bpy.data.collections[obj_name[:obj_name.rfind("_")]])
 
